@@ -1,0 +1,107 @@
+trigger:
+- master
+
+resources:
+- repo: self
+
+variables:
+  # Cria as variáveis de ambiente para conexão ao Container Registry
+  # Container Registry service connection variables
+  dockerRegistryServiceConnection: '747a3-87923b-237482c'
+  imageRepository: 'app-name'
+  containerRegistry: 'app-name.azurecr.io'
+  dockerfilePath: '$(Build.SourcesDirectory)/Dockerfile'
+  tag: '$(Build.SourceVersion)'
+  branch: '$(Build.SourceBranch)'
+
+  # Agent VM image name
+  # Nome da imagem da VM do Agent
+  vmImageName: 'ubuntu-latest'
+
+stages:
+- stage: Install
+  displayName: Install dependencies
+  jobs:
+  - job: Install
+    displayName: Install dependencies
+    pool:
+      vmImage: $(vmImageName)
+
+    steps:
+    
+# Instala o Node
+    - task: NodeTool@0
+      inputs:
+        versionSpec: '16.x'
+        checkLatest: true
+      displayName: 'Install Node.js'
+
+    - script: |
+        npm install
+        npm run build
+  
+      displayName: 'Install & build'
+      
+- stage: RunSonarQubeAnalysis
+  displayName: SonarQube Quality Gate Analysis
+  jobs:
+    - job: 
+      displayName: SonarQube Quality Gate Analysis
+      pool:
+        vmImage: $(vmImageName)
+
+      steps:
+# Executa a análise com base no quality gate do projeto e 'quebra' o build caso 
+# falhe
+# Run the analysis based on project's quality gate and breaks the build if it fails
+
+      - task: SonarQubePrepare@5
+        inputs:
+          SonarQube: 'Sonarqube'
+          scannerMode: 'CLI'
+          configMode: 'file'
+      - task: SonarQubeAnalyze@5
+      - task: sonar-buildbreaker@8
+        inputs:
+          SonarQube: 'Sonarqube'
+
+
+- stage: Build
+  condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/master'))
+  displayName: Build and push stage
+  jobs:
+  - job: Build
+    displayName: Build
+    pool:
+      vmImage: $(vmImageName)
+    steps:
+    - task: Docker@2
+      displayName: Build and push an image to container registry
+      inputs:
+        command: buildAndPush
+        repository: $(imageRepository)
+        dockerfile: $(dockerfilePath)
+        containerRegistry: $(dockerRegistryServiceConnection)
+        tags: |
+          $(tag)
+          latest
+
+- stage: Build_development
+  condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/dev'))
+  displayName: Build and push stage - dev
+  jobs:
+  - job: Build
+    displayName: Build
+    pool:
+      vmImage: $(vmImageName)
+    steps:
+    - task: Docker@2
+      displayName: Build and push an image to container registry
+      inputs:
+        command: buildAndPush
+        repository: $(imageRepository)
+        dockerfile: $(dockerfilePath)
+        containerRegistry: $(dockerRegistryServiceConnection)
+        tags: |
+          $(tag)-dev
+          latest-dev
