@@ -8,5 +8,9 @@ This project is all about how to use Watchtower to deploy and monitor containers
 
 4 - AZURE PIPELINES RULES JENKINS AND THATS ALL!!
 
+---------------------------------------------------------------------------------
+
+
+PS.: In this project, we're using Node,js to develop our application. Some refs as 'app-name' are generic terms.
 
 <img>![meme](https://user-images.githubusercontent.com/89660637/151353839-fbe78e91-150c-47c6-ade6-4d974e5cc2bb.jpg)</img>
